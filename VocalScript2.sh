@@ -81,7 +81,7 @@ az webapp create \
   --name "vocalscript-app" \
   --resource-group $RESOURCE_GROUP \
   --plan "asp-vocalscript" \
-  --runtime "python:3.10"
+  --deployment-container-image-name "vocalscriptacr.azurecr.io/vocalscript-unificado:latest"
 
 # Configurar deployment do GitHub
 az webapp deployment source config \
