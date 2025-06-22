@@ -1,0 +1,5 @@
+streamlit
+azure-storage-blob
+azure-cosmos
+pydub
+pandas
