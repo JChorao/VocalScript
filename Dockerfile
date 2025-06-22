@@ -1,15 +1,19 @@
+# Dockerfile
 FROM python:3.10-slim
 
-WORKDIR /app
+# Instalar dependências do sistema
+RUN apt-get update && apt-get install -y ffmpeg
 
-# Instala dependências do sistema
-RUN apt-get update && apt-get install -y ffmpeg && apt-get clean
-
+# Instalar as dependências Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Copiar o código
+COPY . /app
+WORKDIR /app
 
+# Expor porta (caso uses streamlit diretamente)
 EXPOSE 8501
 
+# Comando de arranque
 CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
