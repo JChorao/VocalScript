@@ -1,9 +1,9 @@
+#!/bin/bash
 
 #-----------------------------------------------------
-# Azure Deployment
+# Azure Deployment - Script corrigido e comentado
 #-----------------------------------------------------
 
-# Variáveis
 LOCATION="FranceCentral"
 RESOURCE_GROUP="rg-vocalscript"
 
@@ -12,7 +12,7 @@ RESOURCE_GROUP="rg-vocalscript"
 # Criar Resource Group
 az group create --name $RESOURCE_GROUP --location $LOCATION
 
-# Storage Account
+# Storage Account para arquivos
 az storage account create \
     --name "vocalstoragedb" \
     --resource-group $RESOURCE_GROUP \
@@ -76,29 +76,39 @@ az appservice plan create \
     --is-linux \
     --sku B1
 
-# Web App - Backend
+# Web App (correção: remove espaço após \ e define runtime corretamente)
 az webapp create \
-    --name "vocalscript-app" \
-    --resource-group $RESOURCE_GROUP \
-    --plan "asp-vocalscript" \
-    --runtime "DOCKER|$DOCKER_USERNAME/vocalscript-app"
+  --name "vocalscript-app" \
+  --resource-group $RESOURCE_GROUP \
+  --plan "asp-vocalscript" \
+  --runtime "python:3.10"
 
+# Configurar deployment do GitHub
+az webapp deployment source config \
+  --name "vocalscript-app" \
+  --resource-group $RESOURCE_GROUP \
+  --repo-url "https://github.com/JChorao/VocalScript" \
+  --branch "main" \
+  --manual-integration
+
+# Identity assign para o Web App
 az webapp identity assign \
-    --name "vocalscript-app" \
-    --resource-group $RESOURCE_GROUP
+  --name "vocalscript-app" \
+  --resource-group $RESOURCE_GROUP
 
+# Configura variáveis de ambiente
 az webapp config appsettings set \
-    --name "vocalscript-app" \
-    --resource-group $RESOURCE_GROUP \
-    --settings \
-        "COSMOS_DB_CONNECTION_STRING=$COSMOS_CONNECTION_STRING;DatabaseName=TranscricoesDB;" \
-        "WEBSITES_ENABLE_APP_SERVICE_STORAGE=false" \
-        "AZURE_STORAGE_CONNECTION_STRING=$STORAGE_CONNECTION_STRING" \
-        "AZURE_CONTAINER_NAME=audios" \
-        "COSMOS_DB_CONTAINER_NAME=Transcricoes" \
-        "API_BASE_URL=https://vocalscript-app.azurewebsites.net"
+  --name "vocalscript-app" \
+  --resource-group $RESOURCE_GROUP \
+  --settings \
+    "COSMOS_DB_CONNECTION_STRING=$COSMOS_CONNECTION_STRING;DatabaseName=TranscricoesDB;" \
+    "WEBSITES_ENABLE_APP_SERVICE_STORAGE=false" \
+    "AZURE_STORAGE_CONNECTION_STRING=$STORAGE_CONNECTION_STRING" \
+    "AZURE_CONTAINER_NAME=audios" \
+    "COSMOS_DB_CONTAINER_NAME=Transcricoes" \
+    "API_BASE_URL=https://vocalscript-app.azurewebsites.net"
 
-# Cognitive Services
+# Cognitive Services (atenção: se estiver soft deleted, precisará resolver manualmente)
 az cognitiveservices account create \
     --name "vocal-speech-to-text" \
     --resource-group $RESOURCE_GROUP \
@@ -113,9 +123,9 @@ az cognitiveservices account create \
     --location $LOCATION \
     --kind TextTranslation \
     --sku S1 \
-    --yes
+    --yes || echo "Verifique se a conta 'vocaltranslator' está soft deleted e remova/purga antes de criar."
 
-# Function App - Storage & Insights
+# Function App Storage Account e App Insights
 az storage account create \
     --name "functionstoragebd" \
     --resource-group $RESOURCE_GROUP \
@@ -123,18 +133,24 @@ az storage account create \
     --sku Standard_LRS
 
 az monitor app-insights component create \
-    --app "vocalscript-func-ai-$RANDOM" \
+    --app "vocalscript-func-ai" \
     --location $LOCATION \
     --resource-group $RESOURCE_GROUP \
     --application-type web
 
 AI_CONNECTION_STRING=$(az monitor app-insights component show \
-    --app "vocalscript-func-ai-$RANDOM" \
+    --app "vocalscript-func-ai" \
     --resource-group $RESOURCE_GROUP \
     --query "connectionString" \
     --output tsv)
 
-# Function App - Docker Image
+# Verifique se $DOCKER_USERNAME está definido antes de rodar o próximo comando!
+if [ -z "$DOCKER_USERNAME" ]; then
+  echo "Variável DOCKER_USERNAME não está definida. Defina-a antes de continuar."
+  exit 1
+fi
+
+# Function App (Docker)
 az functionapp create \
     --name "vocalscript-function" \
     --resource-group $RESOURCE_GROUP \
@@ -144,6 +160,7 @@ az functionapp create \
     --os-type Linux \
     --deployment-container-image-name "$DOCKER_USERNAME/vocalscript-function:latest"
 
+# Configura appsettings da Function App
 az functionapp config appsettings set \
     --name "vocalscript-function" \
     --resource-group $RESOURCE_GROUP \
@@ -152,6 +169,7 @@ az functionapp config appsettings set \
         "AzureWebJobsStorage=$STORAGE_CONNECTION_STRING" \
         "APPLICATIONINSIGHTS_CONNECTION_STRING=$AI_CONNECTION_STRING"
 
+# Identity assign para Function App
 az functionapp identity assign \
     --name "vocalscript-function" \
     --resource-group $RESOURCE_GROUP
