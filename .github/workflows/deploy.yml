@@ -1,0 +1,34 @@
+name: Build and Deploy to Azure Web App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v2
+
+    - name: Login no Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Login no Azure Container Registry (ACR)
+      run: |
+        az acr login --name vocalregistry
+
+    - name: Construir e push da imagem Docker para ACR
+      run: |
+        docker build . -t vocalregistry.azurecr.io/vocalscript-unificado:latest
+        docker push vocalregistry.azurecr.io/vocalscript-unificado:latest
+
+    - name: Atualizar App Service com nova imagem
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: vocalscript-app
+        images: vocalregistry.azurecr.io/vocalscript-unificado:latest
