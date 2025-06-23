@@ -16,4 +16,4 @@ WORKDIR /app
 EXPOSE 80
 
 # Comando de arranque
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "app.py", "--server.port=80", "--server.enableCORS=false"]
