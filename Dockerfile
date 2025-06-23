@@ -13,7 +13,7 @@ COPY . /app
 WORKDIR /app
 
 # Expor porta (caso uses streamlit diretamente)
-EXPOSE 8501
+EXPOSE 80
 
 # Comando de arranque
 CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
